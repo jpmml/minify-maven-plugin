@@ -48,7 +48,7 @@ public class MinifyMojo extends AbstractMojo {
 	@Parameter (
 		required = true
 	)
-	String artifact;
+	Set<String> artifacts;
 
 	@Parameter
 	Set<String> entryPoints = Collections.emptySet();
@@ -62,19 +62,24 @@ public class MinifyMojo extends AbstractMojo {
 	@Parameter (
 		required = true
 	)
-	File outputFile;
+	File outputDir;
 
 
 	@Override
 	public void execute() throws MojoExecutionException {
 		Map<?, ?> artifactMap = this.project.getArtifactMap();
 
-		Artifact targetArtifact = (Artifact)artifactMap.get(this.artifact);
-		if(targetArtifact == null){
-			throw new MojoExecutionException("Failed to minify artifact: parameter artifact refers to artifact " + this.artifact + " that is not contained in project artifacts");
-		}
+		Set<Artifact> targetArtifacts = new LinkedHashSet<>();
 
-		File targetArtifactFile = targetArtifact.getFile();
+		for(String artifact : this.artifacts){
+			Artifact targetArtifact = (Artifact)artifactMap.get(artifact);
+
+			if(targetArtifact == null){
+				throw new MojoExecutionException("Failed to minify artifact: parameter artifacts refers to artifact " + artifact + " that is not contained in project artifacts");
+			}
+
+			targetArtifacts.add(targetArtifact);
+		}
 
 		Set<String> entryPoints = new LinkedHashSet<>(this.entryPoints);
 
@@ -130,7 +135,11 @@ public class MinifyMojo extends AbstractMojo {
 				}
 			};
 
-			filterJarFile(targetArtifactFile, this.outputFile, predicate);
+			for(Artifact targetArtifact : targetArtifacts){
+				File targetArtifactFile = targetArtifact.getFile();
+
+				filterJarFile(targetArtifactFile, new File(this.outputDir, targetArtifact.getArtifactId() + "-" + targetArtifact.getVersion() + "-minified.jar"), predicate);
+			}
 		} catch(Exception e){
 			throw new MojoExecutionException("Failed to minify artifact", e);
 		}
