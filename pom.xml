@@ -11,7 +11,7 @@
 	<groupId>org.jpmml</groupId>
 	<artifactId>minify-maven-plugin</artifactId>
 	<packaging>maven-plugin</packaging>
-	<version>1.0-SNAPSHOT</version>
+	<version>1.0.1</version>
 
 	<name>Minify Apache Maven Plugin</name>
 	<description>Minifies a JAR file by filtering out unused class files</description>
@@ -36,7 +36,7 @@
 		<connection>scm:git:git@github.com:jpmml/minify-maven-plugin.git</connection>
 		<developerConnection>scm:git:git@github.com:jpmml/minify-maven-plugin.git</developerConnection>
 		<url>git://github.com/jpmml/minify-maven-plugin.git</url>
-		<tag>HEAD</tag>
+		<tag>1.0.1</tag>
 	</scm>
 	<issueManagement>
 		<system>GitHub</system>
@@ -44,7 +44,7 @@
 	</issueManagement>
 	
 	<properties>
-		<project.build.outputTimestamp>2024-07-29T11:55:58Z</project.build.outputTimestamp>
+		<project.build.outputTimestamp>2024-08-06T09:27:01Z</project.build.outputTimestamp>
 	</properties>
 
 	<dependencies>
