@@ -3,10 +3,12 @@
  */
 package org.jpmml.maven.plugins;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -54,6 +56,9 @@ public class MinifyMojo extends AbstractMojo {
 	@Parameter
 	Set<String> propertyEntryPoints = Collections.emptySet();
 
+	@Parameter
+	Set<String> serviceEntryPoints = Collections.emptySet();
+
 	@Parameter (
 		required = true
 	)
@@ -82,9 +87,7 @@ public class MinifyMojo extends AbstractMojo {
 
 			clazzpath.addClazzpathUnit(projectArtifactFile);
 
-			if(!this.propertyEntryPoints.isEmpty()){
-				entryPoints.addAll(expandPropertyEntryPoints(projectArtifactFile, this.propertyEntryPoints));
-			}
+			entryPoints.addAll(expandEntryPoints(projectArtifactFile));
 
 			Collection<Artifact> dependencyArtifacts = (Collection<Artifact>)artifactMap.values();
 			for(Artifact dependencyArtifact : dependencyArtifacts){
@@ -92,9 +95,7 @@ public class MinifyMojo extends AbstractMojo {
 
 				clazzpath.addClazzpathUnit(dependencyArtifactFile);
 
-				if(!this.propertyEntryPoints.isEmpty()){
-					entryPoints.addAll(expandPropertyEntryPoints(dependencyArtifactFile, this.propertyEntryPoints));
-				}
+				entryPoints.addAll(expandEntryPoints(dependencyArtifactFile));
 			}
 
 			Set<Clazz> entryPointClazzes = entryPoints.stream()
@@ -135,6 +136,35 @@ public class MinifyMojo extends AbstractMojo {
 		}
 	}
 
+	private Set<String> expandEntryPoints(File file) throws IOException {
+		Set<String> result = new LinkedHashSet<>();
+
+		try(JarFile jarFile = new JarFile(file)){
+
+			for(String propertyEntryPoint : this.propertyEntryPoints){
+				JarEntry jarEntry = (JarEntry)jarFile.getEntry(propertyEntryPoint);
+
+				if(jarEntry == null){
+					continue;
+				}
+
+				result.addAll(loadPropertyValues(jarFile, jarEntry));
+			} // End for
+
+			for(String serviceEntryPoint : this.serviceEntryPoints){
+				JarEntry jarEntry = (JarEntry)jarFile.getEntry(serviceEntryPoint);
+
+				if(jarEntry == null){
+					continue;
+				}
+
+				result.addAll(loadServices(jarFile, jarEntry));
+			}
+		}
+
+		return result;
+	}
+
 	static
 	private void filterJarFile(File inputFile, File outputFile, Predicate<JarEntry> predicate) throws IOException {
 
@@ -169,26 +199,6 @@ public class MinifyMojo extends AbstractMojo {
 	}
 
 	static
-	private Set<String> expandPropertyEntryPoints(File file, Set<String> propertyEntryPoints) throws IOException {
-		Set<String> result = new LinkedHashSet<>();
-
-		try(JarFile jarFile = new JarFile(file)){
-
-			for(String propertyEntryPoint : propertyEntryPoints){
-				JarEntry jarEntry = (JarEntry)jarFile.getEntry(propertyEntryPoint);
-
-				if(jarEntry == null){
-					continue;
-				}
-
-				result.addAll(loadPropertyValues(jarFile, jarEntry));
-			}
-		}
-
-		return result;
-	}
-
-	static
 	private Set<String> loadPropertyValues(JarFile jarFile, JarEntry jarEntry) throws IOException {
 		Properties properties = new Properties();
 
@@ -199,5 +209,37 @@ public class MinifyMojo extends AbstractMojo {
 		return (properties.values()).stream()
 			.map(String.class::cast)
 			.collect(Collectors.toSet());
+	}
+
+	static
+	private Set<String> loadServices(JarFile jarFile, JarEntry jarEntry) throws IOException {
+		Set<String> result = new LinkedHashSet<>();
+
+		try(InputStream is = jarFile.getInputStream(jarEntry)){
+			BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+
+			while(true){
+				String line = reader.readLine();
+
+				if(line == null){
+					break;
+				}
+
+				line = line.trim();
+
+				int hash = line.indexOf('#');
+				if(hash > -1){
+					line = line.substring(0, hash);
+				} // End if
+
+				if(!line.isEmpty()){
+					result.add(line);
+				}
+			}
+
+			reader.close();
+		}
+
+		return result;
 	}
 }
