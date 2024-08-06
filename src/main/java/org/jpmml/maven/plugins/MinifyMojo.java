@@ -8,8 +8,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Properties;
@@ -48,10 +48,11 @@ public class MinifyMojo extends AbstractMojo {
 	)
 	String artifact;
 
-	@Parameter (
-		required = true
-	)
-	Set<String> entryPoints;
+	@Parameter
+	Set<String> entryPoints = Collections.emptySet();
+
+	@Parameter
+	Set<String> propertyEntryPoints = Collections.emptySet();
 
 	@Parameter (
 		required = true
@@ -71,17 +72,6 @@ public class MinifyMojo extends AbstractMojo {
 		File targetArtifactFile = targetArtifact.getFile();
 
 		Set<String> entryPoints = new LinkedHashSet<>(this.entryPoints);
-		Set<String> expandableEntryPoints = new LinkedHashSet<>();
-
-		for(Iterator<String> it = entryPoints.iterator(); it.hasNext(); ){
-			String entryPoint = it.next();
-
-			if(entryPoint.startsWith("META-INF") && entryPoint.endsWith(".properties")){
-				it.remove();
-
-				expandableEntryPoints.add(entryPoint);
-			}
-		}
 
 		try {
 			Clazzpath clazzpath = new Clazzpath();
@@ -92,8 +82,8 @@ public class MinifyMojo extends AbstractMojo {
 
 			clazzpath.addClazzpathUnit(projectArtifactFile);
 
-			if(!expandableEntryPoints.isEmpty()){
-				entryPoints.addAll(expandEntryPoints(projectArtifactFile, expandableEntryPoints));
+			if(!this.propertyEntryPoints.isEmpty()){
+				entryPoints.addAll(expandPropertyEntryPoints(projectArtifactFile, this.propertyEntryPoints));
 			}
 
 			Collection<Artifact> dependencyArtifacts = (Collection<Artifact>)artifactMap.values();
@@ -102,8 +92,8 @@ public class MinifyMojo extends AbstractMojo {
 
 				clazzpath.addClazzpathUnit(dependencyArtifactFile);
 
-				if(!expandableEntryPoints.isEmpty()){
-					entryPoints.addAll(expandEntryPoints(dependencyArtifactFile, expandableEntryPoints));
+				if(!this.propertyEntryPoints.isEmpty()){
+					entryPoints.addAll(expandPropertyEntryPoints(dependencyArtifactFile, this.propertyEntryPoints));
 				}
 			}
 
@@ -179,25 +169,19 @@ public class MinifyMojo extends AbstractMojo {
 	}
 
 	static
-	private Set<String> expandEntryPoints(File file, Set<String> entryPoints) throws IOException {
+	private Set<String> expandPropertyEntryPoints(File file, Set<String> propertyEntryPoints) throws IOException {
 		Set<String> result = new LinkedHashSet<>();
 
 		try(JarFile jarFile = new JarFile(file)){
 
-			for(String entryPoint : entryPoints){
-				JarEntry jarEntry = (JarEntry)jarFile.getEntry(entryPoint);
+			for(String propertyEntryPoint : propertyEntryPoints){
+				JarEntry jarEntry = (JarEntry)jarFile.getEntry(propertyEntryPoint);
 
 				if(jarEntry == null){
 					continue;
-				} // End if
-
-				if(entryPoint.startsWith("META-INF") && entryPoint.endsWith(".properties")){
-					result.addAll(loadPropertyValues(jarFile, jarEntry));
-				} else
-
-				{
-					throw new IllegalArgumentException(entryPoint);
 				}
+
+				result.addAll(loadPropertyValues(jarFile, jarEntry));
 			}
 		}
 
